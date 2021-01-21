@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #####################################################################
 ## youtube_audio_dl.sh
 ##  
@@ -14,6 +14,9 @@ M_VERSION_REV=0
 # Variables
 M_AUDIO_FILENAME='NEWFILE'
 M_AUDIO_TEMPFILE=''
+M_AUDIO_TITLE=''
+M_AUDIO_ARTIST=''
+M_AUDIO_ALBUM=''
 M_AUDIO_STARTTIME=''
 M_AUDIO_ENDTIME=''
 M_AUDIO_DURATION=''
@@ -59,9 +62,12 @@ then
   exit 1
 fi
 
-while getopts 'f:s:e:d:u:hv' flag; do
+while getopts 'f:t:a:b:s:e:d:u:hv' flag; do
   case "${flag}" in
     f) M_AUDIO_FILENAME="${OPTARG}" ;;
+    t) M_AUDIO_TITLE="${OPTARG}" ;;
+    a) M_AUDIO_ARTIST="${OPTARG}" ;;
+    b) M_AUDIO_ALBUM="${OPTARG}" ;;
     s) M_AUDIO_STARTTIME="${OPTARG}" ;;
     e) M_AUDIO_ENDTIME="${OPTARG}" ;;
     d) M_AUDIO_DURATION="${OPTARG}" ;;
@@ -73,12 +79,16 @@ while getopts 'f:s:e:d:u:hv' flag; do
   esac
 done
 
+if [ -n "$M_AUDIO_TITLE" ] && [ -n "$M_AUDIO_ARTIST" ]; then
+  M_AUDIO_FILENAME="$M_AUDIO_ARTIST - $M_AUDIO_TITLE"
+fi
+
 if [ -z "$M_AUDIO_STARTTIME" ] && [ -z "$M_AUDIO_DURATION" ]
 then
   M_FFMPEG_SKIP=true
-  M_AUDIO_TEMPFILE=$M_AUDIO_FILENAME.$M_AUDIO_FORMAT
+  M_AUDIO_TEMPFILE="$M_AUDIO_FILENAME.$M_AUDIO_FORMAT"
 else
-  M_AUDIO_TEMPFILE=TEMP_$M_AUDIO_FILENAME.$M_AUDIO_FORMAT
+  M_AUDIO_TEMPFILE="TEMP_$M_AUDIO_FILENAME.$M_AUDIO_FORMAT"
 fi
 
 if [ -n "$M_AUDIO_ENDTIME" ]
@@ -96,10 +106,10 @@ fi
 ## youtube-dl - extract audio from the given url
 #####################################################################
 youtube-dl -x \
-  --output $M_AUDIO_TEMPFILE \
-  --audio-format $M_AUDIO_FORMAT \
-  --audio-quality 0 \
+  --output "$M_AUDIO_TEMPFILE" \
+  --format "bestaudio[ext=$M_AUDIO_FORMAT]" \
   $M_URL
+
 
 ######################################################################
 ## ffmpeg - trim audio length 
@@ -125,6 +135,17 @@ then
   then
     rm $M_AUDIO_TEMPFILE
   fi
+fi
+
+######################################################################
+## AtomicParsley - tagging
+######################################################################
+if { [ -n "$M_AUDIO_TITLE" ] || [ -n "$M_AUDIO_ARTIST" ] || [ -n "$M_AUDIO_ALBUM" ]; }; then
+  AtomicParsley "$M_AUDIO_FILENAME.$M_AUDIO_FORMAT" \
+    --overWrite \
+    --title "$M_AUDIO_TITLE" \
+    --artist "$M_AUDIO_ARTIST" \
+    --album "$M_AUDIO_ALBUM"
 fi
 
 echo "Thank you"
